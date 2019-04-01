@@ -1,0 +1,5 @@
+{
+    "spyglass.argument.registry.invalid": "Invalid registry id",
+    "spyglass.command.save_dump": "Saved dump to ",
+    "spyglass.chat.stack_format": "%s x %s NBT: %s"
+}
