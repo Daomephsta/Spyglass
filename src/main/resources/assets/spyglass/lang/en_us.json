@@ -1,5 +1,6 @@
 {
     "spyglass.argument.registry.invalid": "Invalid registry id",
-    "spyglass.command.save_dump": "Saved dump to ",
+    "spyglass.command.save_dump.success": "Saved dump to %s",
+    "spyglass.command.save_dump.failure": "An unexpected error occurred. See the log for details.",
     "spyglass.chat.stack_format": "%s x %s NBT: %s"
 }

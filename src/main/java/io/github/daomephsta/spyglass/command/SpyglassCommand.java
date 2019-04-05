@@ -7,8 +7,14 @@ import java.io.IOException;
 import java.lang.reflect.Field;
 import java.nio.file.*;
 import java.util.Arrays;
+import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import java.util.stream.Stream;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+
+import com.google.common.collect.Lists;
 import com.mojang.brigadier.Command;
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
@@ -37,6 +43,7 @@ public class SpyglassCommand
 {
 	private static final DynamicCommandExceptionType INVALID_REGISTRY_EXCEPTION = 
 		new DynamicCommandExceptionType(registryId -> new TranslatableTextComponent(SpyglassInitialiser.MOD_ID + ".argument.registry.invalid", registryId));
+	private static final Logger LOGGER = LogManager.getLogger();
 	
 	public static void register(CommandDispatcher<ServerCommandSource> dispatcher)
 	{
@@ -162,17 +169,13 @@ public class SpyglassCommand
 	{
 		Path registryDumpSubPath = Paths.get("registries", 
 			Registry.REGISTRIES.getId((MutableRegistry<?>) registry).toString().replace(':', '/'));
-		dump(registry.getIds().stream()
-			.map(Object::toString), 
-		registryDumpSubPath, serverCommandSource);
+		dump(registry.getIds().stream().map(Object::toString), registryDumpSubPath, serverCommandSource); 
 		return Command.SINGLE_SUCCESS;
 	}
 
 	private static int dumpItemGroups(ServerCommandSource serverCommandSource)
 	{
-		dump(Arrays.stream(ItemGroup.GROUPS)
-			.map(SpyglassCommand::getItemGroupId), 
-		Paths.get("item_groups"), serverCommandSource);
+		dump(Arrays.stream(ItemGroup.GROUPS).map(SpyglassCommand::getItemGroupId), Paths.get("item_groups"), serverCommandSource);
 		return Command.SINGLE_SUCCESS;
 	}
 
@@ -216,28 +219,40 @@ public class SpyglassCommand
 		}
 	}
 
-	private static void dump(Stream<String> lines, Path subPath, ServerCommandSource serverCommandSource)
+	private static boolean dump(Stream<String> lines, Path subPath, ServerCommandSource serverCommandSource)
 	{
-		dump(lines::iterator, subPath, serverCommandSource);
+		return dump(lines::iterator, subPath, serverCommandSource);
 	}
 
-	private static void dump(Iterable<String> lines, Path subPath, ServerCommandSource serverCommandSource)
+	private static boolean dump(Iterable<String> lines, Path subPath, ServerCommandSource serverCommandSource)
 	{
-		try
+		Path tempPath = Paths.get("dumps").resolve(subPath);
+		final Path path = tempPath.resolveSibling(tempPath.getFileName() + ".txt");
+		List<String> collectedLines = Lists.newArrayList(lines);
+		CompletableFuture<Void> dumpIO = CompletableFuture.runAsync(() ->
 		{
-			Path tempPath = Paths.get("dumps").resolve(subPath);
-			final Path path = tempPath.resolveSibling(tempPath.getFileName() + ".txt");
-			Files.createDirectories(path.getParent());
-			Files.write(path, lines, StandardOpenOption.CREATE);
+			try
+			{
+				Files.createDirectories(path.getParent());
+				Files.write(path, collectedLines, StandardOpenOption.CREATE);
+			}
+			catch (IOException e)
+			{
+				throw new RuntimeException("An unrecoverable error occured while writing to " + path.toAbsolutePath(), e);
+			}
+		}).thenRun(() -> 
+		{
 			TextComponent link = new StringTextComponent(path.toString())
 				.applyFormat(TextFormat.UNDERLINE)
 				.modifyStyle(style -> style.setClickEvent(new ClickEvent(ClickEvent.Action.OPEN_FILE, path.toAbsolutePath().toString())));
-			TextComponent feedback = new TranslatableTextComponent(SpyglassInitialiser.MOD_ID + ".command.save_dump").append(link);
+			TextComponent feedback = new TranslatableTextComponent(SpyglassInitialiser.MOD_ID + ".command.save_dump.success", link);
 			serverCommandSource.sendFeedback(feedback, false);
-		}
-		catch (IOException e)
+		}).exceptionally(ex -> 
 		{
-			e.printStackTrace();
-		}
+			serverCommandSource.sendFeedback(new TranslatableTextComponent(SpyglassInitialiser.MOD_ID + ".command.save_dump.failure"), false);
+			LOGGER.error("An error occured while dumping to file", ex);
+			return null;
+		});
+		return dumpIO.isDone() && !dumpIO.isCompletedExceptionally();
 	}
 }
