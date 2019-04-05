@@ -7,8 +7,6 @@
   "initializers": [
     "io.github.daomephsta.spyglass.SpyglassInitialiser"
   ],
-  "requires": {
-    "fabric": "*"
-  },
+  "requires": {},
   "mixins": {}
 }
