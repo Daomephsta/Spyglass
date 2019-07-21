@@ -1,12 +1,35 @@
 {
+  "schemaVersion": 1,
   "id": "spyglass",
   "name": "Spyglass",
   "description": "Commands for getting and dumping all sorts of useful information",
   "version": "${version}",
-  "side": "universal",
-  "initializers": [
-    "io.github.daomephsta.spyglass.SpyglassInitialiser"
+  "authors":
+  [
+    "Daomephsta"
   ],
-  "requires": {},
-  "mixins": {}
+  "contact":
+  {
+    "homepage": "https://github.com/Daomephsta/Spyglass",
+    "sources": "https://minecraft.curseforge.com/projects/spyglass"
+  },
+  "license": "MIT",
+  "icon": "assets/spyglass/icon.png",
+  "environment": "*",
+  "entrypoints":
+  {
+    "main":
+    [
+      "io.github.daomephsta.spyglass.SpyglassInitialiser::initialise"
+    ]
+  },
+  "mixins":
+  [
+    "spyglass.mixins.common.json"
+  ],
+  "requires":
+  {
+    "fabricloader": ">=0.4.0",
+    "fabric": "*"
+  }
 }
