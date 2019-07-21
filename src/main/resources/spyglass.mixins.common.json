@@ -1,0 +1,13 @@
+{
+  "required": true,
+  "package": "io.github.daomephsta.spyglass.mixin",
+  "compatibilityLevel": "JAVA_8",
+  "mixins":
+  [
+    "ItemGroupAccessors"
+  ],
+  "injectors":
+  {
+    "defaultRequire": 1
+  }
+}

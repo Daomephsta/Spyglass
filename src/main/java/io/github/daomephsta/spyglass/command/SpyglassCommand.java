@@ -1,10 +1,9 @@
 package io.github.daomephsta.spyglass.command;
 
-import static net.minecraft.server.command.ServerCommandManager.argument;
-import static net.minecraft.server.command.ServerCommandManager.literal;
+import static net.minecraft.server.command.CommandManager.argument;
+import static net.minecraft.server.command.CommandManager.literal;
 
 import java.io.IOException;
-import java.lang.reflect.Field;
 import java.nio.file.*;
 import java.util.Arrays;
 import java.util.List;
@@ -21,6 +20,7 @@ import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.brigadier.exceptions.DynamicCommandExceptionType;
 
 import io.github.daomephsta.spyglass.SpyglassInitialiser;
+import io.github.daomephsta.spyglass.mixin.ItemGroupAccessors;
 import net.fabricmc.loader.api.FabricLoader;
 import net.fabricmc.loader.api.ModContainer;
 import net.fabricmc.loader.api.metadata.ModMetadata;
@@ -53,12 +53,12 @@ public class SpyglassCommand
 			.then
 			(
 				dump()
-				)
+			)
 			.then
 			(
 				get()
-				)
-			);
+			)
+		);
 	}
 
 	private static LiteralArgumentBuilder<ServerCommandSource> dump()
@@ -134,7 +134,7 @@ public class SpyglassCommand
 
 	private static TranslatableTextComponent formatStack(ItemStack stack)
 	{
-		return new TranslatableTextComponent(SpyglassInitialiser.MOD_ID + ".chat.stack_format", 
+		return new TranslatableTextComponent(SpyglassInitialiser.MOD_ID + ".chat.stack_format",
 			stack.getAmount(), stack.getDisplayName().getFormattedText(), stack.hasTag() ? stack.getTag().toString() : "{}");
 	}
 
@@ -154,7 +154,7 @@ public class SpyglassCommand
 			metadata.getName(), metadata.getDescription());
 	}
 
-	public static int dumpAllRegistries(ServerCommandSource serverCommandSource)
+	private static int dumpAllRegistries(ServerCommandSource serverCommandSource)
 	{
 		for(Registry<?> registry : Registry.REGISTRIES)
 		{
@@ -167,7 +167,7 @@ public class SpyglassCommand
 
 	private static int dumpRegistry(Registry<?> registry, ServerCommandSource serverCommandSource)
 	{
-		Path registryDumpSubPath = Paths.get("registries", 
+		Path registryDumpSubPath = Paths.get("registries",
 			Registry.REGISTRIES.getId((MutableRegistry<?>) registry).toString().replace(':', '/'));
 		dump(registry.getIds().stream().map(Object::toString), registryDumpSubPath, serverCommandSource); 
 		return Command.SINGLE_SUCCESS;
@@ -175,61 +175,21 @@ public class SpyglassCommand
 
 	private static int dumpItemGroups(ServerCommandSource serverCommandSource)
 	{
-		dump(Arrays.stream(ItemGroup.GROUPS).map(SpyglassCommand::getItemGroupId), Paths.get("item_groups"), serverCommandSource);
+		dump(Arrays.stream(ItemGroup.GROUPS).map(itemGroup -> ((ItemGroupAccessors) itemGroup).getId()), Paths.get("item_groups"), serverCommandSource);
 		return Command.SINGLE_SUCCESS;
 	}
 
-	private static Field ITEM_GROUP_ID;
-	static
+	private static void dump(Stream<String> lines, Path subPath, ServerCommandSource serverCommandSource)
 	{
-		//Need to use reflection because the getter is client-only
-		//TODO Remove when accessor mixins work again
-		Exception lastException = null;
-		try
-		{
-			ITEM_GROUP_ID = ItemGroup.class.getDeclaredField("field_7935");
-		}
-		catch (NoSuchFieldException | SecurityException e)
-		{
-			lastException = e;
-		}
-		try
-		{
-			ITEM_GROUP_ID = ItemGroup.class.getDeclaredField("id");
-		}
-		catch (NoSuchFieldException | SecurityException e)
-		{
-			lastException = e;
-		}
-		if (ITEM_GROUP_ID != null)
-			ITEM_GROUP_ID.setAccessible(true);
-		else
-			throw new RuntimeException("Failed to get ItemGroup id field", lastException);
+		dump(lines::iterator, subPath, serverCommandSource);
 	}
 
-	private static String getItemGroupId(ItemGroup itemGroup)
-	{
-		try
-		{
-			return (String) ITEM_GROUP_ID.get(itemGroup);
-		}
-		catch (IllegalArgumentException | IllegalAccessException e)
-		{
-			throw new RuntimeException("Failed to get ItemGroup id", e);
-		}
-	}
-
-	private static boolean dump(Stream<String> lines, Path subPath, ServerCommandSource serverCommandSource)
-	{
-		return dump(lines::iterator, subPath, serverCommandSource);
-	}
-
-	private static boolean dump(Iterable<String> lines, Path subPath, ServerCommandSource serverCommandSource)
+	private static void dump(Iterable<String> lines, Path subPath, ServerCommandSource serverCommandSource)
 	{
 		Path tempPath = Paths.get("dumps").resolve(subPath);
 		final Path path = tempPath.resolveSibling(tempPath.getFileName() + ".txt");
 		List<String> collectedLines = Lists.newArrayList(lines);
-		CompletableFuture<Void> dumpIO = CompletableFuture.runAsync(() ->
+		CompletableFuture.runAsync(() ->
 		{
 			try
 			{
@@ -238,7 +198,7 @@ public class SpyglassCommand
 			}
 			catch (IOException e)
 			{
-				throw new RuntimeException("An unrecoverable error occured while writing to " + path.toAbsolutePath(), e);
+				throw new RuntimeException("An unrecoverable error occurred while writing to " + path.toAbsolutePath(), e);
 			}
 		}).thenRun(() -> 
 		{
@@ -250,9 +210,8 @@ public class SpyglassCommand
 		}).exceptionally(ex -> 
 		{
 			serverCommandSource.sendFeedback(new TranslatableTextComponent(SpyglassInitialiser.MOD_ID + ".command.save_dump.failure"), false);
-			LOGGER.error("An error occured while dumping to file", ex);
+			LOGGER.error("An error occurred while dumping to file", ex);
 			return null;
 		});
-		return dumpIO.isDone() && !dumpIO.isCompletedExceptionally();
 	}
 }
