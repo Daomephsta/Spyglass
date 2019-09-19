@@ -4,7 +4,10 @@ import static net.minecraft.server.command.CommandManager.argument;
 import static net.minecraft.server.command.CommandManager.literal;
 
 import java.io.IOException;
-import java.nio.file.*;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.StandardOpenOption;
 import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -30,8 +33,11 @@ import net.minecraft.item.ItemGroup;
 import net.minecraft.item.ItemStack;
 import net.minecraft.server.command.CommandSource;
 import net.minecraft.server.command.ServerCommandSource;
-import net.minecraft.text.*;
-import net.minecraft.text.event.ClickEvent;
+import net.minecraft.text.ClickEvent;
+import net.minecraft.text.LiteralText;
+import net.minecraft.text.Text;
+import net.minecraft.text.TranslatableText;
+import net.minecraft.util.Formatting;
 import net.minecraft.util.Identifier;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.registry.MutableRegistry;
@@ -42,7 +48,7 @@ import net.minecraft.world.biome.Biome;
 public class SpyglassCommand
 {
 	private static final DynamicCommandExceptionType INVALID_REGISTRY_EXCEPTION = 
-		new DynamicCommandExceptionType(registryId -> new TranslatableTextComponent(SpyglassInitialiser.MOD_ID + ".argument.registry.invalid", registryId));
+		new DynamicCommandExceptionType(registryId -> new TranslatableText(SpyglassInitialiser.MOD_ID + ".argument.registry.invalid", registryId));
 	private static final Logger LOGGER = LogManager.getLogger();
 	
 	public static void register(CommandDispatcher<ServerCommandSource> dispatcher)
@@ -69,7 +75,7 @@ public class SpyglassCommand
 				literal("registry")
 				.then
 				(
-					argument("registry_id", IdentifierArgumentType.create())
+					argument("registry_id", IdentifierArgumentType.identifier())
 					.suggests((context, builder) -> CommandSource.suggestIdentifiers(Registry.REGISTRIES.getIds(), builder))
 					.executes(context ->
 					{
@@ -104,7 +110,7 @@ public class SpyglassCommand
 					World world = context.getSource().getWorld();
 					BlockPos position = new BlockPos(context.getSource().getPosition());
 					Biome biome = world.getBiome(position);
-					context.getSource().sendFeedback(new StringTextComponent(Registry.BIOME.getId(biome).toString()), false);
+					context.getSource().sendFeedback(new LiteralText(Registry.BIOME.getId(biome).toString()), false);
 					return Command.SINGLE_SUCCESS;
 				})
 			)
@@ -132,10 +138,10 @@ public class SpyglassCommand
 			);
 	}
 
-	private static TranslatableTextComponent formatStack(ItemStack stack)
+	private static TranslatableText formatStack(ItemStack stack)
 	{
-		return new TranslatableTextComponent(SpyglassInitialiser.MOD_ID + ".chat.stack_format",
-			stack.getAmount(), stack.getDisplayName().getFormattedText(), stack.hasTag() ? stack.getTag().toString() : "{}");
+		return new TranslatableText(SpyglassInitialiser.MOD_ID + ".chat.stack_format",
+			stack.getCount(), stack.getName(), stack.hasTag() ? stack.getTag().toString() : "{}");
 	}
 
 	private static int dumpMods(ServerCommandSource serverCommandSource)
@@ -202,14 +208,14 @@ public class SpyglassCommand
 			}
 		}).thenRun(() -> 
 		{
-			TextComponent link = new StringTextComponent(path.toString())
-				.applyFormat(TextFormat.UNDERLINE)
-				.modifyStyle(style -> style.setClickEvent(new ClickEvent(ClickEvent.Action.OPEN_FILE, path.toAbsolutePath().toString())));
-			TextComponent feedback = new TranslatableTextComponent(SpyglassInitialiser.MOD_ID + ".command.save_dump.success", link);
+			Text link = new LiteralText(path.toString())
+				.formatted(Formatting.UNDERLINE)
+				.styled(style -> style.setClickEvent(new ClickEvent(ClickEvent.Action.OPEN_FILE, path.toAbsolutePath().toString())));
+			Text feedback = new TranslatableText(SpyglassInitialiser.MOD_ID + ".command.save_dump.success", link);
 			serverCommandSource.sendFeedback(feedback, false);
 		}).exceptionally(ex -> 
 		{
-			serverCommandSource.sendFeedback(new TranslatableTextComponent(SpyglassInitialiser.MOD_ID + ".command.save_dump.failure"), false);
+			serverCommandSource.sendFeedback(new TranslatableText(SpyglassInitialiser.MOD_ID + ".command.save_dump.failure"), false);
 			LOGGER.error("An error occurred while dumping to file", ex);
 			return null;
 		});
