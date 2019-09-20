@@ -181,7 +181,7 @@ public class SpyglassCommand
 
 	private static int dumpItemGroups(ServerCommandSource serverCommandSource)
 	{
-		dump(Arrays.stream(ItemGroup.GROUPS).map(itemGroup -> ((ItemGroupAccessors) itemGroup).getId()), Paths.get("item_groups"), serverCommandSource);
+		dump(Arrays.stream(ItemGroup.GROUPS).map(itemGroup -> ((ItemGroupAccessors) itemGroup).spyglass_getId()), Paths.get("item_groups"), serverCommandSource);
 		return Command.SINGLE_SUCCESS;
 	}
 

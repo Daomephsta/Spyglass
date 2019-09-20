@@ -7,6 +7,6 @@ import org.spongepowered.asm.mixin.gen.Accessor;
 @Mixin(ItemGroup.class)
 public interface ItemGroupAccessors
 {
-    @Accessor
-    public String getId();
+    @Accessor("id")
+    public String spyglass_getId();
 }
