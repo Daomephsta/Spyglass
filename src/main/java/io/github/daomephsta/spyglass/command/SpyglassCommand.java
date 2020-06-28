@@ -154,9 +154,9 @@ public class SpyglassCommand
 	private static String describeMod(ModContainer mod)
 	{
 		ModMetadata metadata = mod.getMetadata();
-		return String.format("%s %s (%s) - %s",
-			metadata.getId(), metadata.getVersion(),
-			metadata.getName(), metadata.getDescription());
+		return String.format("%s %s\n\tMod ID: %s\n\t%s",
+		    metadata.getName(), metadata.getVersion(),
+			metadata.getId(), metadata.getDescription());
 	}
 
 	private static int dumpAllRegistries(ServerCommandSource serverCommandSource)
