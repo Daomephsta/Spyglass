@@ -40,17 +40,16 @@ import net.minecraft.text.TranslatableText;
 import net.minecraft.util.Formatting;
 import net.minecraft.util.Identifier;
 import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.registry.MutableRegistry;
 import net.minecraft.util.registry.Registry;
 import net.minecraft.world.World;
 import net.minecraft.world.biome.Biome;
 
 public class SpyglassCommand
 {
-	private static final DynamicCommandExceptionType INVALID_REGISTRY_EXCEPTION = 
+	private static final DynamicCommandExceptionType INVALID_REGISTRY_EXCEPTION =
 		new DynamicCommandExceptionType(registryId -> new TranslatableText(SpyglassInitialiser.MOD_ID + ".argument.registry.invalid", registryId));
 	private static final Logger LOGGER = LogManager.getLogger();
-	
+
 	public static void register(CommandDispatcher<ServerCommandSource> dispatcher)
 	{
 		dispatcher.register
@@ -147,7 +146,7 @@ public class SpyglassCommand
 	private static int dumpMods(ServerCommandSource serverCommandSource)
 	{
 		dump(FabricLoader.getInstance().getAllMods().stream()
-			.map(SpyglassCommand::describeMod), 
+			.map(SpyglassCommand::describeMod),
 		Paths.get("mods"), serverCommandSource);
 		return Command.SINGLE_SUCCESS;
 	}
@@ -155,8 +154,8 @@ public class SpyglassCommand
 	private static String describeMod(ModContainer mod)
 	{
 		ModMetadata metadata = mod.getMetadata();
-		return String.format("%s %s (%s) - %s", 
-			metadata.getId(), metadata.getVersion(), 
+		return String.format("%s %s (%s) - %s",
+			metadata.getId(), metadata.getVersion(),
 			metadata.getName(), metadata.getDescription());
 	}
 
@@ -173,13 +172,14 @@ public class SpyglassCommand
 
 	private static int dumpRegistry(Registry<?> registry, ServerCommandSource serverCommandSource)
 	{
-		Path registryDumpSubPath = Paths.get("registries",
-			Registry.REGISTRIES.getId((MutableRegistry<?>) registry).toString().replace(':', '/'));
-		dump(registry.getIds().stream().map(Object::toString), registryDumpSubPath, serverCommandSource); 
+		@SuppressWarnings({"unchecked", "rawtypes"}) //This is safe, but generics will not cooperate
+        Identifier registryId = ((Registry) Registry.REGISTRIES).getId(registry);
+        Path registryDumpSubPath = Paths.get("registries", registryId.toString().replace(':', '/'));
+		dump(registry.getIds().stream().map(Identifier::toString), registryDumpSubPath, serverCommandSource);
 		return Command.SINGLE_SUCCESS;
 	}
 
-	private static int dumpItemGroups(ServerCommandSource serverCommandSource)
+    private static int dumpItemGroups(ServerCommandSource serverCommandSource)
 	{
 		dump(Arrays.stream(ItemGroup.GROUPS).map(itemGroup -> ((ItemGroupAccessors) itemGroup).spyglass_getId()), Paths.get("item_groups"), serverCommandSource);
 		return Command.SINGLE_SUCCESS;
@@ -206,14 +206,14 @@ public class SpyglassCommand
 			{
 				throw new RuntimeException("An unrecoverable error occurred while writing to " + path.toAbsolutePath(), e);
 			}
-		}).thenRun(() -> 
+		}).thenRun(() ->
 		{
 			Text link = new LiteralText(path.toString())
 				.formatted(Formatting.UNDERLINE)
-				.styled(style -> style.setClickEvent(new ClickEvent(ClickEvent.Action.OPEN_FILE, path.toAbsolutePath().toString())));
+				.styled(style -> style.withClickEvent(new ClickEvent(ClickEvent.Action.OPEN_FILE, path.toAbsolutePath().toString())));
 			Text feedback = new TranslatableText(SpyglassInitialiser.MOD_ID + ".command.save_dump.success", link);
 			serverCommandSource.sendFeedback(feedback, false);
-		}).exceptionally(ex -> 
+		}).exceptionally(ex ->
 		{
 			serverCommandSource.sendFeedback(new TranslatableText(SpyglassInitialiser.MOD_ID + ".command.save_dump.failure"), false);
 			LOGGER.error("An error occurred while dumping to file", ex);
