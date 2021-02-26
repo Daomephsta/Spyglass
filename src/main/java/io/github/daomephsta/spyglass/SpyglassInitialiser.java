@@ -1,8 +1,9 @@
 package io.github.daomephsta.spyglass;
 
 import com.mojang.brigadier.CommandDispatcher;
+
 import io.github.daomephsta.spyglass.command.SpyglassCommand;
-import net.fabricmc.fabric.api.event.server.ServerStartCallback;
+import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import net.minecraft.server.command.ServerCommandSource;
 
 public class SpyglassInitialiser
@@ -11,7 +12,7 @@ public class SpyglassInitialiser
 
 	public static void initialise()
 	{
-		ServerStartCallback.EVENT.register(server -> registerCommands(server.getCommandManager().getDispatcher()));
+		ServerLifecycleEvents.SERVER_STARTED.register(server -> registerCommands(server.getCommandManager().getDispatcher()));
 	}
 
 	private static void registerCommands(CommandDispatcher<ServerCommandSource> dispatcher)
