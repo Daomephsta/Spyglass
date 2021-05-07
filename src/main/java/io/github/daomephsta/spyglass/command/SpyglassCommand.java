@@ -9,7 +9,11 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Stream;
 
@@ -20,18 +24,19 @@ import com.google.common.collect.Lists;
 import com.mojang.brigadier.Command;
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
+import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.exceptions.DynamicCommandExceptionType;
 
 import io.github.daomephsta.spyglass.SpyglassInitialiser;
-import io.github.daomephsta.spyglass.mixin.ItemGroupAccessors;
+import io.github.daomephsta.spyglass.mixin.DynamicRegistryManagerImplAccessors;
 import net.fabricmc.loader.api.FabricLoader;
 import net.fabricmc.loader.api.ModContainer;
 import net.fabricmc.loader.api.metadata.ModMetadata;
-import net.minecraft.command.arguments.IdentifierArgumentType;
+import net.minecraft.command.CommandSource;
+import net.minecraft.command.argument.IdentifierArgumentType;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.item.ItemGroup;
 import net.minecraft.item.ItemStack;
-import net.minecraft.server.command.CommandSource;
 import net.minecraft.server.command.ServerCommandSource;
 import net.minecraft.text.ClickEvent;
 import net.minecraft.text.LiteralText;
@@ -40,8 +45,11 @@ import net.minecraft.text.TranslatableText;
 import net.minecraft.util.Formatting;
 import net.minecraft.util.Identifier;
 import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.registry.DynamicRegistryManager;
+import net.minecraft.util.registry.MutableRegistry;
 import net.minecraft.util.registry.Registry;
-import net.minecraft.world.World;
+import net.minecraft.util.registry.RegistryKey;
+import net.minecraft.util.registry.SimpleRegistry;
 import net.minecraft.world.biome.Biome;
 
 public class SpyglassCommand
@@ -75,13 +83,22 @@ public class SpyglassCommand
 				.then
 				(
 					argument("registry_id", IdentifierArgumentType.identifier())
-					.suggests((context, builder) -> CommandSource.suggestIdentifiers(Registry.REGISTRIES.getIds(), builder))
+					.suggests((context, builder) -> 
+					{
+                        Stream<Identifier> registryIds = Stream.concat(
+                            Registry.REGISTRIES.getIds().stream(), 
+                            getDynamicRegistries(context.getSource()).keySet().stream()
+                                .map(RegistryKey::getValue));
+                        return CommandSource.suggestIdentifiers(registryIds, builder);
+                    })
 					.executes(context ->
 					{
 						Identifier registryId = context.getArgument("registry_id", Identifier.class);
 						Registry<?> registry = Registry.REGISTRIES.getOrEmpty(registryId)
-							.orElseThrow(() -> INVALID_REGISTRY_EXCEPTION.create(registryId));
-						return dumpRegistry(registry, context.getSource());
+						    .map(Optional::of).orElseGet(() -> context.getSource().getRegistryManager()
+						        .getOptional(RegistryKey.ofRegistry(registryId)))
+                            .orElseThrow(() -> INVALID_REGISTRY_EXCEPTION.create(registryId));
+						return dumpRegistry(registry, registryId, context.getSource());
 					})
 				)
 				.then
@@ -104,14 +121,7 @@ public class SpyglassCommand
 		return literal("get")
 			.then
 			(
-				literal("biome").executes(context ->
-				{
-					World world = context.getSource().getWorld();
-					BlockPos position = new BlockPos(context.getSource().getPosition());
-					Biome biome = world.getBiome(position);
-					context.getSource().sendFeedback(new LiteralText(Registry.BIOME.getId(biome).toString()), false);
-					return Command.SINGLE_SUCCESS;
-				})
+				literal("biome").executes(SpyglassCommand::getBiome)
 			)
 			.then
 			(
@@ -135,6 +145,15 @@ public class SpyglassCommand
 					})
 				)
 			);
+	}
+	
+	private static int getBiome(CommandContext<ServerCommandSource> context)
+	{
+	    BlockPos position = new BlockPos(context.getSource().getPosition());
+	    Biome biome = context.getSource().getWorld().getBiome(position);
+	    MutableRegistry<Biome> biomeRegistry = context.getSource().getRegistryManager().get(Registry.BIOME_KEY);
+        context.getSource().sendFeedback(new LiteralText(biomeRegistry.getId(biome).toString()), false);
+	    return Command.SINGLE_SUCCESS;
 	}
 
 	private static TranslatableText formatStack(ItemStack stack)
@@ -163,17 +182,26 @@ public class SpyglassCommand
 	{
 		for(Registry<?> registry : Registry.REGISTRIES)
 		{
-			int result = dumpRegistry(registry, serverCommandSource);
+	        @SuppressWarnings({"unchecked", "rawtypes"}) //This is safe, but generics will not cooperate
+	        Identifier registryId = ((Registry) Registry.REGISTRIES).getId(registry);
+			int result = dumpRegistry(registry, registryId, serverCommandSource);
 			if (result != Command.SINGLE_SUCCESS)
 				return result;
 		}
+		for(Entry<? extends RegistryKey<? extends Registry<?>>, ? extends SimpleRegistry<?>> entry : 
+		    getDynamicRegistries(serverCommandSource).entrySet())
+        {
+            SimpleRegistry<?> registry = entry.getValue();
+            Identifier registryId = entry.getKey().getValue();
+            int result = dumpRegistry(registry, registryId, serverCommandSource);
+            if (result != Command.SINGLE_SUCCESS)
+                return result;
+        }
 		return Command.SINGLE_SUCCESS;
 	}
 
-	private static int dumpRegistry(Registry<?> registry, ServerCommandSource serverCommandSource)
+	private static int dumpRegistry(Registry<?> registry, Identifier registryId, ServerCommandSource serverCommandSource)
 	{
-		@SuppressWarnings({"unchecked", "rawtypes"}) //This is safe, but generics will not cooperate
-        Identifier registryId = ((Registry) Registry.REGISTRIES).getId(registry);
         Path registryDumpSubPath = Paths.get("registries", registryId.toString().replace(':', '/'));
 		dump(registry.getIds().stream().map(Identifier::toString), registryDumpSubPath, serverCommandSource);
 		return Command.SINGLE_SUCCESS;
@@ -181,7 +209,8 @@ public class SpyglassCommand
 
     private static int dumpItemGroups(ServerCommandSource serverCommandSource)
 	{
-		dump(Arrays.stream(ItemGroup.GROUPS).map(itemGroup -> ((ItemGroupAccessors) itemGroup).spyglass_getId()), Paths.get("item_groups"), serverCommandSource);
+		dump(Arrays.stream(ItemGroup.GROUPS).map(ItemGroup::getName), 
+		    Paths.get("item_groups"), serverCommandSource);
 		return Command.SINGLE_SUCCESS;
 	}
 
@@ -220,4 +249,13 @@ public class SpyglassCommand
 			return null;
 		});
 	}
+
+    private static Map<? extends RegistryKey<? extends Registry<?>>, ? extends SimpleRegistry<?>> getDynamicRegistries(ServerCommandSource serverCommandSource)
+    {
+        DynamicRegistryManager registryManager = serverCommandSource.getRegistryManager();
+        if (registryManager instanceof DynamicRegistryManagerImplAccessors)
+            return ((DynamicRegistryManagerImplAccessors) registryManager).spyglass_getRegistries();
+        serverCommandSource.sendFeedback(new LiteralText("WARNING: Unexpected dynamic registry manager type " + registryManager.getClass().getName()), false);
+        return Collections.emptyMap();
+    }
 }
