@@ -8,15 +8,15 @@ import net.minecraft.server.command.ServerCommandSource;
 
 public class SpyglassInitialiser
 {
-	public static final String MOD_ID = "spyglass";
+    public static final String MOD_ID = "spyglass";
 
-	public static void initialise()
-	{
-		ServerLifecycleEvents.SERVER_STARTED.register(server -> registerCommands(server.getCommandManager().getDispatcher()));
-	}
+    public static void initialise()
+    {
+        ServerLifecycleEvents.SERVER_STARTED.register(server -> registerCommands(server.getCommandManager().getDispatcher()));
+    }
 
-	private static void registerCommands(CommandDispatcher<ServerCommandSource> dispatcher)
-	{
-		SpyglassCommand.register(dispatcher);
-	}
+    private static void registerCommands(CommandDispatcher<ServerCommandSource> dispatcher)
+    {
+        SpyglassCommand.register(dispatcher);
+    }
 }

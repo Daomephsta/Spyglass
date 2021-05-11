@@ -54,142 +54,142 @@ import net.minecraft.world.biome.Biome;
 
 public class SpyglassCommand
 {
-	private static final DynamicCommandExceptionType INVALID_REGISTRY_EXCEPTION =
-		new DynamicCommandExceptionType(registryId -> new TranslatableText(SpyglassInitialiser.MOD_ID + ".argument.registry.invalid", registryId));
-	private static final Logger LOGGER = LogManager.getLogger();
+    private static final DynamicCommandExceptionType INVALID_REGISTRY_EXCEPTION =
+        new DynamicCommandExceptionType(registryId -> new TranslatableText(SpyglassInitialiser.MOD_ID + ".argument.registry.invalid", registryId));
+    private static final Logger LOGGER = LogManager.getLogger();
 
-	public static void register(CommandDispatcher<ServerCommandSource> dispatcher)
-	{
-		dispatcher.register
-		(
-			literal("spyglass")
-			.then
-			(
-				dump()
-			)
-			.then
-			(
-				get()
-			)
-		);
-	}
+    public static void register(CommandDispatcher<ServerCommandSource> dispatcher)
+    {
+        dispatcher.register
+        (
+            literal("spyglass")
+            .then
+            (
+                dump()
+            )
+            .then
+            (
+                get()
+            )
+        );
+    }
 
-	private static LiteralArgumentBuilder<ServerCommandSource> dump()
-	{
-		return literal("dump")
-			.then
-			(
-				literal("registry")
-				.then
-				(
-					argument("registry_id", IdentifierArgumentType.identifier())
-					.suggests((context, builder) -> 
-					{
+    private static LiteralArgumentBuilder<ServerCommandSource> dump()
+    {
+        return literal("dump")
+            .then
+            (
+                literal("registry")
+                .then
+                (
+                    argument("registry_id", IdentifierArgumentType.identifier())
+                    .suggests((context, builder) -> 
+                    {
                         Stream<Identifier> registryIds = Stream.concat(
                             Registry.REGISTRIES.getIds().stream(), 
                             getDynamicRegistries(context.getSource()).keySet().stream()
                                 .map(RegistryKey::getValue));
                         return CommandSource.suggestIdentifiers(registryIds, builder);
                     })
-					.executes(context ->
-					{
-						Identifier registryId = context.getArgument("registry_id", Identifier.class);
-						Registry<?> registry = Registry.REGISTRIES.getOrEmpty(registryId)
-						    .map(Optional::of).orElseGet(() -> context.getSource().getRegistryManager()
-						        .getOptional(RegistryKey.ofRegistry(registryId)))
+                    .executes(context ->
+                    {
+                        Identifier registryId = context.getArgument("registry_id", Identifier.class);
+                        Registry<?> registry = Registry.REGISTRIES.getOrEmpty(registryId)
+                            .map(Optional::of).orElseGet(() -> context.getSource().getRegistryManager()
+                                .getOptional(RegistryKey.ofRegistry(registryId)))
                             .orElseThrow(() -> INVALID_REGISTRY_EXCEPTION.create(registryId));
-						return dumpRegistry(registry, registryId, context.getSource());
-					})
-				)
-				.then
-				(
-					literal("all").executes(context -> dumpAllRegistries(context.getSource()))
-				)
-			)
-			.then
-			(
-				literal("item_groups").executes(context -> dumpItemGroups(context.getSource()))
-			)
-			.then
-			(
-				literal("mods").executes(context -> dumpMods(context.getSource()))
-			);
-	}
+                        return dumpRegistry(registry, registryId, context.getSource());
+                    })
+                )
+                .then
+                (
+                    literal("all").executes(context -> dumpAllRegistries(context.getSource()))
+                )
+            )
+            .then
+            (
+                literal("item_groups").executes(context -> dumpItemGroups(context.getSource()))
+            )
+            .then
+            (
+                literal("mods").executes(context -> dumpMods(context.getSource()))
+            );
+    }
 
-	private static LiteralArgumentBuilder<ServerCommandSource> get()
-	{
-		return literal("get")
-			.then
-			(
-				literal("biome").executes(SpyglassCommand::getBiome)
-			)
-			.then
-			(
-				literal("held_item")
-				.then
-				(
-					literal("main_hand").executes(context ->
-					{
-						PlayerEntity player = context.getSource().getPlayer();
-						context.getSource().sendFeedback(formatStack(player.getMainHandStack()), false);
-						return Command.SINGLE_SUCCESS;
-					})
-				)
-				.then
-				(
-					literal("off_hand").executes(context ->
-					{
-						PlayerEntity player = context.getSource().getPlayer();
-						context.getSource().sendFeedback(formatStack(player.getOffHandStack()), false);
-						return Command.SINGLE_SUCCESS;
-					})
-				)
-			);
-	}
-	
-	private static int getBiome(CommandContext<ServerCommandSource> context)
-	{
-	    BlockPos position = new BlockPos(context.getSource().getPosition());
-	    Biome biome = context.getSource().getWorld().getBiome(position);
-	    MutableRegistry<Biome> biomeRegistry = context.getSource().getRegistryManager().get(Registry.BIOME_KEY);
+    private static LiteralArgumentBuilder<ServerCommandSource> get()
+    {
+        return literal("get")
+            .then
+            (
+                literal("biome").executes(SpyglassCommand::getBiome)
+            )
+            .then
+            (
+                literal("held_item")
+                .then
+                (
+                    literal("main_hand").executes(context ->
+                    {
+                        PlayerEntity player = context.getSource().getPlayer();
+                        context.getSource().sendFeedback(formatStack(player.getMainHandStack()), false);
+                        return Command.SINGLE_SUCCESS;
+                    })
+                )
+                .then
+                (
+                    literal("off_hand").executes(context ->
+                    {
+                        PlayerEntity player = context.getSource().getPlayer();
+                        context.getSource().sendFeedback(formatStack(player.getOffHandStack()), false);
+                        return Command.SINGLE_SUCCESS;
+                    })
+                )
+            );
+    }
+    
+    private static int getBiome(CommandContext<ServerCommandSource> context)
+    {
+        BlockPos position = new BlockPos(context.getSource().getPosition());
+        Biome biome = context.getSource().getWorld().getBiome(position);
+        MutableRegistry<Biome> biomeRegistry = context.getSource().getRegistryManager().get(Registry.BIOME_KEY);
         context.getSource().sendFeedback(new LiteralText(biomeRegistry.getId(biome).toString()), false);
-	    return Command.SINGLE_SUCCESS;
-	}
+        return Command.SINGLE_SUCCESS;
+    }
 
-	private static TranslatableText formatStack(ItemStack stack)
-	{
-		return new TranslatableText(SpyglassInitialiser.MOD_ID + ".chat.stack_format",
-			stack.getCount(), stack.getName(), stack.hasTag() ? stack.getTag().toString() : "{}");
-	}
+    private static TranslatableText formatStack(ItemStack stack)
+    {
+        return new TranslatableText(SpyglassInitialiser.MOD_ID + ".chat.stack_format",
+            stack.getCount(), stack.getName(), stack.hasTag() ? stack.getTag().toString() : "{}");
+    }
 
-	private static int dumpMods(ServerCommandSource serverCommandSource)
-	{
-		dump(FabricLoader.getInstance().getAllMods().stream()
-			.map(SpyglassCommand::describeMod),
-		Paths.get("mods"), serverCommandSource);
-		return Command.SINGLE_SUCCESS;
-	}
+    private static int dumpMods(ServerCommandSource serverCommandSource)
+    {
+        dump(FabricLoader.getInstance().getAllMods().stream()
+            .map(SpyglassCommand::describeMod),
+        Paths.get("mods"), serverCommandSource);
+        return Command.SINGLE_SUCCESS;
+    }
 
-	private static String describeMod(ModContainer mod)
-	{
-		ModMetadata metadata = mod.getMetadata();
-		return String.format("%s %s\n\tMod ID: %s\n\t%s",
-		    metadata.getName(), metadata.getVersion(),
-			metadata.getId(), metadata.getDescription());
-	}
+    private static String describeMod(ModContainer mod)
+    {
+        ModMetadata metadata = mod.getMetadata();
+        return String.format("%s %s\n\tMod ID: %s\n\t%s",
+            metadata.getName(), metadata.getVersion(),
+            metadata.getId(), metadata.getDescription());
+    }
 
-	private static int dumpAllRegistries(ServerCommandSource serverCommandSource)
-	{
-		for(Registry<?> registry : Registry.REGISTRIES)
-		{
-	        @SuppressWarnings({"unchecked", "rawtypes"}) //This is safe, but generics will not cooperate
-	        Identifier registryId = ((Registry) Registry.REGISTRIES).getId(registry);
-			int result = dumpRegistry(registry, registryId, serverCommandSource);
-			if (result != Command.SINGLE_SUCCESS)
-				return result;
-		}
-		for(Entry<? extends RegistryKey<? extends Registry<?>>, ? extends SimpleRegistry<?>> entry : 
-		    getDynamicRegistries(serverCommandSource).entrySet())
+    private static int dumpAllRegistries(ServerCommandSource serverCommandSource)
+    {
+        for(Registry<?> registry : Registry.REGISTRIES)
+        {
+            @SuppressWarnings({"unchecked", "rawtypes"}) //This is safe, but generics will not cooperate
+            Identifier registryId = ((Registry) Registry.REGISTRIES).getId(registry);
+            int result = dumpRegistry(registry, registryId, serverCommandSource);
+            if (result != Command.SINGLE_SUCCESS)
+                return result;
+        }
+        for(Entry<? extends RegistryKey<? extends Registry<?>>, ? extends SimpleRegistry<?>> entry : 
+            getDynamicRegistries(serverCommandSource).entrySet())
         {
             SimpleRegistry<?> registry = entry.getValue();
             Identifier registryId = entry.getKey().getValue();
@@ -197,58 +197,58 @@ public class SpyglassCommand
             if (result != Command.SINGLE_SUCCESS)
                 return result;
         }
-		return Command.SINGLE_SUCCESS;
-	}
+        return Command.SINGLE_SUCCESS;
+    }
 
-	private static int dumpRegistry(Registry<?> registry, Identifier registryId, ServerCommandSource serverCommandSource)
-	{
+    private static int dumpRegistry(Registry<?> registry, Identifier registryId, ServerCommandSource serverCommandSource)
+    {
         Path registryDumpSubPath = Paths.get("registries", registryId.toString().replace(':', '/'));
-		dump(registry.getIds().stream().map(Identifier::toString), registryDumpSubPath, serverCommandSource);
-		return Command.SINGLE_SUCCESS;
-	}
+        dump(registry.getIds().stream().map(Identifier::toString), registryDumpSubPath, serverCommandSource);
+        return Command.SINGLE_SUCCESS;
+    }
 
     private static int dumpItemGroups(ServerCommandSource serverCommandSource)
-	{
-		dump(Arrays.stream(ItemGroup.GROUPS).map(ItemGroup::getName), 
-		    Paths.get("item_groups"), serverCommandSource);
-		return Command.SINGLE_SUCCESS;
-	}
+    {
+        dump(Arrays.stream(ItemGroup.GROUPS).map(ItemGroup::getName), 
+            Paths.get("item_groups"), serverCommandSource);
+        return Command.SINGLE_SUCCESS;
+    }
 
-	private static void dump(Stream<String> lines, Path subPath, ServerCommandSource serverCommandSource)
-	{
-		dump(lines::iterator, subPath, serverCommandSource);
-	}
+    private static void dump(Stream<String> lines, Path subPath, ServerCommandSource serverCommandSource)
+    {
+        dump(lines::iterator, subPath, serverCommandSource);
+    }
 
-	private static void dump(Iterable<String> lines, Path subPath, ServerCommandSource serverCommandSource)
-	{
-		Path tempPath = Paths.get("dumps").resolve(subPath);
-		final Path path = tempPath.resolveSibling(tempPath.getFileName() + ".txt");
-		List<String> collectedLines = Lists.newArrayList(lines);
-		CompletableFuture.runAsync(() ->
-		{
-			try
-			{
-				Files.createDirectories(path.getParent());
-				Files.write(path, collectedLines, StandardOpenOption.CREATE);
-			}
-			catch (IOException e)
-			{
-				throw new RuntimeException("An unrecoverable error occurred while writing to " + path.toAbsolutePath(), e);
-			}
-		}).thenRun(() ->
-		{
-			Text link = new LiteralText(path.toString())
-				.formatted(Formatting.UNDERLINE)
-				.styled(style -> style.withClickEvent(new ClickEvent(ClickEvent.Action.OPEN_FILE, path.toAbsolutePath().toString())));
-			Text feedback = new TranslatableText(SpyglassInitialiser.MOD_ID + ".command.save_dump.success", link);
-			serverCommandSource.sendFeedback(feedback, false);
-		}).exceptionally(ex ->
-		{
-			serverCommandSource.sendFeedback(new TranslatableText(SpyglassInitialiser.MOD_ID + ".command.save_dump.failure"), false);
-			LOGGER.error("An error occurred while dumping to file", ex);
-			return null;
-		});
-	}
+    private static void dump(Iterable<String> lines, Path subPath, ServerCommandSource serverCommandSource)
+    {
+        Path tempPath = Paths.get("dumps").resolve(subPath);
+        final Path path = tempPath.resolveSibling(tempPath.getFileName() + ".txt");
+        List<String> collectedLines = Lists.newArrayList(lines);
+        CompletableFuture.runAsync(() ->
+        {
+            try
+            {
+                Files.createDirectories(path.getParent());
+                Files.write(path, collectedLines, StandardOpenOption.CREATE);
+            }
+            catch (IOException e)
+            {
+                throw new RuntimeException("An unrecoverable error occurred while writing to " + path.toAbsolutePath(), e);
+            }
+        }).thenRun(() ->
+        {
+            Text link = new LiteralText(path.toString())
+                .formatted(Formatting.UNDERLINE)
+                .styled(style -> style.withClickEvent(new ClickEvent(ClickEvent.Action.OPEN_FILE, path.toAbsolutePath().toString())));
+            Text feedback = new TranslatableText(SpyglassInitialiser.MOD_ID + ".command.save_dump.success", link);
+            serverCommandSource.sendFeedback(feedback, false);
+        }).exceptionally(ex ->
+        {
+            serverCommandSource.sendFeedback(new TranslatableText(SpyglassInitialiser.MOD_ID + ".command.save_dump.failure"), false);
+            LOGGER.error("An error occurred while dumping to file", ex);
+            return null;
+        });
+    }
 
     private static Map<? extends RegistryKey<? extends Registry<?>>, ? extends SimpleRegistry<?>> getDynamicRegistries(ServerCommandSource serverCommandSource)
     {
