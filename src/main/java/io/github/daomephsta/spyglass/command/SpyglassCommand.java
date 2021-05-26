@@ -17,6 +17,7 @@ import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Stream;
 
+import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -173,9 +174,12 @@ public class SpyglassCommand
     private static String describeMod(ModContainer mod)
     {
         ModMetadata metadata = mod.getMetadata();
+        String description = metadata.getDescription();
+        if (description == null || StringUtils.isBlank(description))
+            description = "No description";
         return String.format("%s %s\n\tMod ID: %s\n\t%s",
             metadata.getName(), metadata.getVersion(),
-            metadata.getId(), metadata.getDescription());
+            metadata.getId(), description);
     }
 
     private static int dumpAllRegistries(ServerCommandSource serverCommandSource)
