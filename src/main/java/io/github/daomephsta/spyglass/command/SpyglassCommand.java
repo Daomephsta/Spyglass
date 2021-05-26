@@ -13,7 +13,6 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Stream;
 
@@ -95,10 +94,14 @@ public class SpyglassCommand
                     .executes(context ->
                     {
                         Identifier registryId = context.getArgument("registry_id", Identifier.class);
-                        Registry<?> registry = Registry.REGISTRIES.getOrEmpty(registryId)
-                            .map(Optional::of).orElseGet(() -> context.getSource().getRegistryManager()
-                                .getOptional(RegistryKey.ofRegistry(registryId)))
-                            .orElseThrow(() -> INVALID_REGISTRY_EXCEPTION.create(registryId));
+                        Registry<?> registry = Registry.REGISTRIES.get(registryId);
+                        if (registry == null)
+                        {
+                            registry = context.getSource().getRegistryManager()
+                                .getOptional(RegistryKey.ofRegistry(registryId)).orElse(null);
+                        }
+                        if (registry == null)
+                            throw INVALID_REGISTRY_EXCEPTION.create(registryId);
                         return dumpRegistry(registry, registryId, context.getSource());
                     })
                 )
