@@ -6,6 +6,7 @@ out/
 classes/
 
 # eclipse
+
 *.launch
 
 # idea
@@ -22,6 +23,10 @@ classes/
 bin/
 .classpath
 .project
+
+# macos
+
+*.DS_Store
 
 # fabric
 

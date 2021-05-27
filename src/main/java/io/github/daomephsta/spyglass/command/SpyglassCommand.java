@@ -46,7 +46,6 @@ import net.minecraft.util.Formatting;
 import net.minecraft.util.Identifier;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.registry.DynamicRegistryManager;
-import net.minecraft.util.registry.MutableRegistry;
 import net.minecraft.util.registry.Registry;
 import net.minecraft.util.registry.RegistryKey;
 import net.minecraft.util.registry.SimpleRegistry;
@@ -155,7 +154,7 @@ public class SpyglassCommand
     {
         BlockPos position = new BlockPos(context.getSource().getPosition());
         Biome biome = context.getSource().getWorld().getBiome(position);
-        MutableRegistry<Biome> biomeRegistry = context.getSource().getRegistryManager().get(Registry.BIOME_KEY);
+        Registry<Biome> biomeRegistry = context.getSource().getRegistryManager().get(Registry.BIOME_KEY);
         context.getSource().sendFeedback(new LiteralText(biomeRegistry.getId(biome).toString()), false);
         return Command.SINGLE_SUCCESS;
     }
